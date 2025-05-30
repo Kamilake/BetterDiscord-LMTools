@@ -6,7 +6,11 @@ export interface PluginSettings {
   enabled: boolean;
   autoSave: boolean;
   theme: 'dark' | 'light' | 'auto';
-  apiEndpoint: string;
+  apiProvider: 'openai' | 'anthropic';
+  openaiApiKey: string;
+  openaiModel: string;
+  anthropicApiKey: string;
+  anthropicModel: string;
   maxTokens: number;
   temperature: number;
 }
@@ -15,7 +19,11 @@ export const defaultSettings: PluginSettings = {
   enabled: true,
   autoSave: true,
   theme: 'auto',
-  apiEndpoint: 'https://api.openai.com/v1',
+  apiProvider: 'openai',
+  openaiApiKey: '',
+  openaiModel: 'gpt-3.5-turbo',
+  anthropicApiKey: '',
+  anthropicModel: 'claude-3-sonnet-20240229',
   maxTokens: 2048,
   temperature: 0.7
 };
@@ -61,14 +69,61 @@ export const settingsConfig: SettingConfig[] = [
     id: 'api',
     name: 'API 설정',
     collapsible: true,
-    shown: false,
+    shown: true,
     settings: [
       {
+        type: 'dropdown',
+        id: 'apiProvider',
+        name: 'API 공급자',
+        note: '사용할 언어 모델 API 공급자를 선택하세요.',
+        value: 'openai',
+        options: [
+          { label: 'OpenAI', value: 'openai' },
+          { label: 'Anthropic', value: 'anthropic' }
+        ]
+      },
+      {
         type: 'text',
-        id: 'apiEndpoint',
-        name: 'API 엔드포인트',
-        note: '언어 모델 API의 엔드포인트 URL을 입력하세요.',
-        value: 'https://api.openai.com/v1'
+        id: 'openaiApiKey',
+        name: 'OpenAI API 키',
+        note: 'OpenAI API 키를 입력하세요. (sk-...로 시작)',
+        value: ''
+      },
+      {
+        type: 'dropdown',
+        id: 'openaiModel',
+        name: 'OpenAI 모델',
+        note: '사용할 OpenAI 모델을 선택하세요.',
+        value: 'gpt-3.5-turbo',
+        options: [
+          { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' },
+          { label: 'GPT-3.5 Turbo 16k', value: 'gpt-3.5-turbo-16k' },
+          { label: 'GPT-4', value: 'gpt-4' },
+          { label: 'GPT-4 Turbo', value: 'gpt-4-turbo-preview' },
+          { label: 'GPT-4 Vision', value: 'gpt-4-vision-preview' }
+        ]
+      },
+      {
+        type: 'text',
+        id: 'anthropicApiKey',
+        name: 'Anthropic API 키',
+        note: 'Anthropic API 키를 입력하세요.',
+        value: ''
+      },
+      {
+        type: 'dropdown',
+        id: 'anthropicModel',
+        name: 'Anthropic 모델',
+        note: '사용할 Anthropic 모델을 선택하세요.',
+        value: 'claude-3-sonnet-20240229',
+        options: [
+          { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229' },
+          { label: 'Claude 3 Sonnet', value: 'claude-3-sonnet-20240229' },
+          { label: 'Claude 3 Haiku', value: 'claude-3-haiku-20240307' },
+          { label: 'Claude 2.1', value: 'claude-2.1' },
+          { label: 'Claude 2.0', value: 'claude-2.0' },
+          { label: 'Claude Instant 1.2', value: 'claude-instant-1.2' }
+        ]
       },
       {
         type: 'slider',
@@ -143,5 +198,36 @@ export class SettingsManager {
         value: this.settings[config.id as keyof PluginSettings] ?? config.value
       };
     });
+  }
+
+  // API 설정 헬퍼 메서드들
+  getCurrentApiKey(): string {
+    const provider = this.get('apiProvider');
+    return provider === 'openai'
+      ? this.get('openaiApiKey')
+      : this.get('anthropicApiKey');
+  }
+
+  getCurrentModel(): string {
+    const provider = this.get('apiProvider');
+    return provider === 'openai'
+      ? this.get('openaiModel')
+      : this.get('anthropicModel');
+  }
+
+  getCurrentProvider(): 'openai' | 'anthropic' {
+    return this.get('apiProvider');
+  }
+
+  isApiKeyConfigured(): boolean {
+    const apiKey = this.getCurrentApiKey();
+    return apiKey !== null && apiKey !== undefined && apiKey.trim() !== '';
+  }
+
+  getApiEndpoint(): string {
+    const provider = this.get('apiProvider');
+    return provider === 'openai'
+      ? 'https://api.openai.com/v1'
+      : 'https://api.anthropic.com/v1';
   }
 }

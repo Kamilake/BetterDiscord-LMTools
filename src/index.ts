@@ -57,8 +57,47 @@ export default class LMTools implements BetterDiscordPlugin {
         console.log(`Theme changed to: ${value}`);
         // 테마 변경 로직 추가
         break;
+      case 'apiProvider':
+        console.log(`API Provider changed to: ${value}`);
+        this.validateApiConfiguration();
+        break;
+      case 'openaiApiKey':
+      case 'anthropicApiKey':
+        console.log(`API Key updated for: ${id}`);
+        this.validateApiConfiguration();
+        break;
+      case 'openaiModel':
+      case 'anthropicModel':
+        console.log(`Model changed: ${id} = ${value}`);
+        break;
       default:
         break;
     }
+  }
+
+  private validateApiConfiguration(): void {
+    if (this.settingsManager.isApiKeyConfigured()) {
+      const provider = this.settingsManager.getCurrentProvider();
+      const model = this.settingsManager.getCurrentModel();
+      console.log(`API configuration valid - Provider: ${provider}, Model: ${model}`);
+    } else {
+      console.warn('API key not configured. Please set your API key in settings.');
+    }
+  }
+
+  // API 메서드들 - 향후 번역 및 답장 추천 기능에 사용될 예정
+  public getApiConfiguration() {
+    return {
+      provider: this.settingsManager.getCurrentProvider(),
+      apiKey: this.settingsManager.getCurrentApiKey(),
+      model: this.settingsManager.getCurrentModel(),
+      endpoint: this.settingsManager.getApiEndpoint(),
+      maxTokens: this.settingsManager.get('maxTokens'),
+      temperature: this.settingsManager.get('temperature')
+    };
+  }
+
+  public isApiReady(): boolean {
+    return this.settingsManager.isApiKeyConfigured();
   }
 }
