@@ -1,0 +1,20 @@
+.my-component {
+  background-color: #5865f2;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: Whitney, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.my-component:hover {
+  background-color: #4752c4;
+}
+
+.my-component:disabled {
+  background-color: #747f8d;
+  cursor: not-allowed;
+}
