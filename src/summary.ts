@@ -334,17 +334,124 @@ export class ConversationSummarizer {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // 실제 API 호출 메서드 (향후 구현 예정)
+  // 실제 API 호출 메서드
   private async callLMAPI(messages: string[]): Promise<string> {
     const config = this.settingsManager.getApiConfiguration();
     
-    // TODO: 실제 API 호출 로직 구현
-    // - OpenAI 또는 Anthropic API 호출
-    // - 메시지 배열을 요약 프롬프트와 함께 전송
-    // - 응답 파싱 및 반환
+    if (!config.apiKey || config.apiKey.trim() === '') {
+      throw new Error('API 키가 설정되지 않았습니다.');
+    }
+
+    const conversationText = messages.join('\n');
     
-    // 임시로 더미 지연과 함께 더미 요약 반환
-    await this.delay(1000);
-    return this.generateDummySummary();
+    try {
+      if (config.provider === 'openai') {
+        return await this.callOpenAIAPI(conversationText, config);
+      } else if (config.provider === 'anthropic') {
+        return await this.callAnthropicAPI(conversationText, config);
+      } else {
+        throw new Error(`지원하지 않는 API 공급자: ${config.provider}`);
+      }
+    } catch (error) {
+      console.error('API 호출 오류:', error);
+      throw new Error(`API 호출 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
+  }
+
+  private async callOpenAIAPI(conversationText: string, config: any): Promise<string> {
+    const prompt = this.generateSummaryPrompt(conversationText);
+    
+    const requestBody = {
+      model: config.model,
+      messages: [
+        {
+          role: "system",
+          content: "당신은 Discord 대화를 요약하는 전문가입니다. 대화의 핵심 내용과 주요 논점을 간결하고 이해하기 쉽게 요약해 주세요."
+        },
+        {
+          role: "user", 
+          content: prompt
+        }
+      ],
+      max_tokens: config.maxTokens,
+      temperature: config.temperature
+    };
+
+    const response = await fetch(`${config.endpoint}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`OpenAI API 오류 (${response.status}): ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI API로부터 유효한 응답을 받지 못했습니다.');
+    }
+
+    return data.choices[0].message.content.trim();
+  }
+
+  private async callAnthropicAPI(conversationText: string, config: any): Promise<string> {
+    const prompt = this.generateSummaryPrompt(conversationText);
+    
+    const requestBody = {
+      model: config.model,
+      max_tokens: config.maxTokens,
+      temperature: config.temperature,
+      messages: [
+        {
+          role: "user",
+          content: `당신은 Discord 대화를 요약하는 전문가입니다. 대화의 핵심 내용과 주요 논점을 간결하고 이해하기 쉽게 요약해 주세요.\n\n${prompt}`
+        }
+      ]
+    };
+
+    const response = await fetch(`${config.endpoint}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Anthropic API 오류 (${response.status}): ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.content || data.content.length === 0) {
+      throw new Error('Anthropic API로부터 유효한 응답을 받지 못했습니다.');
+    }
+
+    return data.content[0].text.trim();
+  }
+
+  private generateSummaryPrompt(conversationText: string): string {
+    return `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
+
+주요 요구사항:
+1. 대화의 핵심 주제와 내용을 파악하여 요약
+2. 중요한 의견이나 결정사항이 있다면 포함
+3. 참여자들의 주요 관점이나 의견 차이가 있다면 언급
+4. 3-5문장 정도의 간결한 요약
+5. 불필요한 인사말이나 짧은 반응은 제외
+
+대화 내용:
+${conversationText}
+
+요약:`;
   }
 }
