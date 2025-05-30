@@ -304,6 +304,52 @@ export class ConversationSummarizer {
   }
 
   /**
+   * 현재 Discord 사용자의 이름을 가져옴
+   */
+  private getCurrentUsername(): string {
+    try {
+      // BdApi를 통해 현재 사용자 정보 가져오기
+      const BdApi = (window as any).BdApi;
+      
+      if (BdApi && BdApi.Webpack) {
+        // UserStore를 통해 현재 사용자 정보 가져오기
+        const UserStore = BdApi.Webpack.getModule((m: any) => m.getCurrentUser);
+        if (UserStore && UserStore.getCurrentUser) {
+          const currentUser = UserStore.getCurrentUser();
+          if (currentUser) {
+            // globalName이 있으면 사용, 없으면 username 사용
+            return currentUser.globalName || currentUser.username || "사용자";
+          }
+        }
+
+        // 다른 방법: DiscordModules를 통해 가져오기
+        const DiscordModules = BdApi.Webpack.getModule((m: any) => m.UserStore);
+        if (DiscordModules && DiscordModules.UserStore) {
+          const currentUser = DiscordModules.UserStore.getCurrentUser();
+          if (currentUser) {
+            return currentUser.globalName || currentUser.username || "사용자";
+          }
+        }
+      }
+
+      // 대안: DOM에서 사용자 이름 찾기
+      const usernameElement = document.querySelector('[class*="nameTag"] [class*="username"]') ||
+                              document.querySelector('[class*="accountProfileCard"] [class*="userTag"]') ||
+                              document.querySelector('[class*="panelTitle"]');
+      
+      if (usernameElement && usernameElement.textContent) {
+        return usernameElement.textContent.trim();
+      }
+
+      console.warn('Could not find current username, using default');
+      return "사용자";
+    } catch (error) {
+      console.error('Error getting current username:', error);
+      return "사용자";
+    }
+  }
+
+  /**
    * 메시지들의 시간 범위를 계산
    */
   private calculateTimeRange(messages: DiscordMessage[]): string {
@@ -340,8 +386,13 @@ export class ConversationSummarizer {
 
   private async callOpenAIAPI(conversationText: string, config: any): Promise<string> {
     const prompt = this.generateSummaryPrompt(conversationText);
+    console.log(`Generated prompt for OpenAI API`);
+    console.log(prompt);
     
-    const requestBody = {
+    // omni 모델 여부 확인 (o1-mini, o1-preview 등)
+    const isOmniModel = config.model.startsWith('o');
+    
+    const requestBody: any = {
       model: config.model,
       messages: [
         {
@@ -349,13 +400,24 @@ export class ConversationSummarizer {
           content: "당신은 Discord 대화를 요약하는 전문가입니다. 대화의 핵심 내용과 주요 논점을 간결하고 이해하기 쉽게 요약해 주세요. 응답은 JSON 형식만 허용됩니다."
         },
         {
-          role: "user", 
+          role: "user",
           content: prompt
         }
-      ],
-      max_tokens: config.maxTokens,
-      temperature: config.temperature
+      ]
     };
+    
+    // 모델에 따른 파라미터 설정
+    if (isOmniModel) {
+      // omni 모델은 max_completion_tokens 사용, temperature는 기본값(1)만 지원
+      requestBody.max_completion_tokens = config.maxTokens;
+      // temperature는 설정하지 않음 (기본값 1 사용)
+    } else {
+      // 기존 GPT 모델은 max_tokens와 temperature 사용
+      requestBody.max_tokens = config.maxTokens;
+      requestBody.temperature = config.temperature;
+    }
+    
+    console.log(`Using model: ${config.model}, isOmniModel: ${isOmniModel}`);
 
     const response = await fetch(`${config.endpoint}/chat/completions`, {
       method: 'POST',
@@ -421,6 +483,10 @@ export class ConversationSummarizer {
   }
 
   private generateSummaryPrompt(conversationText: string): string {
+    // 현재 사용자의 이름 가져오기
+    const username = this.getCurrentUsername();
+    console.log(`Current username for prompt: ${username}`);
+    
     return `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
 
 주요 응답 요구사항:
@@ -431,7 +497,7 @@ export class ConversationSummarizer {
 5. 불필요한 인사말이나 짧은 반응은 제외
 
 주요 예시 대답 요구사항:
-1. 예시 대답이란, 대화의 흐름에 맞춰 작성된 참여자의 입장에서 하는 대답입니다.
+1. 예시 대답이란, 대화의 흐름에 맞춰 작성된 ${username}의 입장에서 하는 대답입니다.
 2. 마지막 대화에 대한 적절한 반응을 작성
 3. 한국어가 아닌 경우, 원문 언어로 제공
 
