@@ -440,6 +440,32 @@ export default class LMTools implements BetterDiscordPlugin {
   }
 
   private showSummaryModal(summary: any): void {
+    // JSON 응답 파싱
+    let summaryData: { summary: string; examples?: string[] } = { summary: summary.summary };
+    
+    try {
+      // summary가 이미 파싱된 객체인지 확인
+      if (typeof summary.summary === 'object' && summary.summary.summary) {
+        summaryData = summary.summary;
+      } else if (typeof summary.summary === 'string') {
+        // JSON 문자열인지 확인하고 파싱 시도
+        const jsonMatch = summary.summary.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          summaryData = JSON.parse(jsonMatch[1]);
+        } else {
+          // 일반 JSON 파싱 시도
+          try {
+            summaryData = JSON.parse(summary.summary);
+          } catch {
+            // 파싱 실패시 기본값 사용
+            summaryData = { summary: summary.summary };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing summary JSON:', error);
+    }
+
     // 모달 컨테이너 생성
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'lm-tools-modal-overlay';
@@ -463,8 +489,8 @@ export default class LMTools implements BetterDiscordPlugin {
       background-color: var(--background-primary, #36393f);
       border-radius: 8px;
       padding: 24px;
-      max-width: 600px;
-      max-height: 80vh;
+      max-width: 700px;
+      max-height: 85vh;
       overflow-y: auto;
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
       color: var(--text-normal, #dcddde);
@@ -472,61 +498,145 @@ export default class LMTools implements BetterDiscordPlugin {
       animation: slideIn 0.3s ease;
     `;
 
+    // 예시 대답 HTML 생성
+    let examplesHtml = '';
+    if (summaryData.examples && Array.isArray(summaryData.examples) && summaryData.examples.length > 0) {
+      examplesHtml = `
+        <div style="margin-top: 20px;">
+          <h3 style="
+            color: var(--header-secondary, #b9bbbe);
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          ">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            추천 답변 예시
+          </h3>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            ${summaryData.examples.map((example, index) => `
+              <div class="example-item" data-example="${example.replace(/"/g, '&quot;')}" style="
+                background-color: var(--background-secondary-alt, #292b2f);
+                padding: 12px 16px;
+                border-radius: 6px;
+                border: 2px solid transparent;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                position: relative;
+                overflow: hidden;
+              ">
+                <div style="display: flex; align-items: start; gap: 10px;">
+                  <span style="
+                    background-color: var(--brand-experiment, #5865f2);
+                    color: white;
+                    font-size: 10px;
+                    font-weight: 700;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    flex-shrink: 0;
+                  ">${index + 1}</span>
+                  <p style="margin: 0; line-height: 1.4; flex: 1;">
+                    ${example}
+                  </p>
+                  <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                    flex-shrink: 0;
+                  ">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                  </svg>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
     modal.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h2 style="margin: 0; color: var(--header-primary, #ffffff); font-size: 20px; font-weight: 600;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: var(--header-primary, #ffffff); font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--brand-experiment, #5865f2)">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+          </svg>
           대화 요약
         </h2>
         <button class="close-button" style="
           background: transparent;
           border: none;
           color: var(--interactive-normal, #b9bbbe);
-          font-size: 24px;
+          font-size: 28px;
           cursor: pointer;
           padding: 4px;
           border-radius: 4px;
           transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
         ">×</button>
       </div>
       
-      <div style="margin-bottom: 16px;">
-        <div style="
-          background-color: var(--background-secondary, #2f3136);
-          padding: 12px;
-          border-radius: 6px;
-          border-left: 4px solid var(--brand-experiment, #5865f2);
-        ">
-          <div style="font-size: 12px; color: var(--text-muted, #72767d); margin-bottom: 8px;">
+      <div style="
+        background-color: var(--background-secondary, #2f3136);
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        border-left: 4px solid var(--brand-experiment, #5865f2);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      ">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--text-muted, #72767d)">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+          </svg>
+          <span style="font-size: 13px; color: var(--text-muted, #72767d); font-weight: 500;">
             메시지 ${summary.messageCount}개 · ${summary.timeRange}
-          </div>
-          <div style="line-height: 1.5; font-size: 14px;">
-            ${summary.summary}
-          </div>
+          </span>
+        </div>
+        <div style="line-height: 1.6; font-size: 15px; color: var(--text-normal, #dcddde);">
+          ${summaryData.summary}
         </div>
       </div>
+
+      ${examplesHtml}
       
-      <div style="display: flex; gap: 8px; justify-content: flex-end;">
-        <button class="copy-button" style="
+      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+        <button class="copy-summary-button" style="
           background-color: var(--brand-experiment, #5865f2);
           color: white;
           border: none;
-          padding: 8px 16px;
-          border-radius: 4px;
+          padding: 10px 20px;
+          border-radius: 6px;
           cursor: pointer;
           font-size: 14px;
           font-weight: 500;
-          transition: background-color 0.2s ease;
-        ">복사</button>
-        <button class="close-button" style="
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        ">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+          </svg>
+          요약 복사
+        </button>
+        <button class="close-modal-button" style="
           background-color: var(--background-secondary, #2f3136);
           color: var(--text-normal, #dcddde);
           border: none;
-          padding: 8px 16px;
-          border-radius: 4px;
+          padding: 10px 20px;
+          border-radius: 6px;
           cursor: pointer;
           font-size: 14px;
           font-weight: 500;
-          transition: background-color 0.2s ease;
+          transition: all 0.2s ease;
         ">닫기</button>
       </div>
     `;
@@ -546,10 +656,41 @@ export default class LMTools implements BetterDiscordPlugin {
       
       .lm-tools-summary-modal .close-button:hover {
         background-color: var(--background-modifier-hover, #4f545c) !important;
+        color: var(--interactive-hover, #dcddde) !important;
       }
       
-      .lm-tools-summary-modal .copy-button:hover {
+      .lm-tools-summary-modal .copy-summary-button:hover {
         background-color: var(--brand-experiment-560, #4752c4) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
+      }
+      
+      .lm-tools-summary-modal .close-modal-button:hover {
+        background-color: var(--background-modifier-hover, #4f545c) !important;
+      }
+      
+      .lm-tools-summary-modal .example-item:hover {
+        border-color: var(--brand-experiment, #5865f2) !important;
+        background-color: var(--background-modifier-hover, #4f545c) !important;
+      }
+      
+      .lm-tools-summary-modal .example-item:hover .copy-icon {
+        opacity: 1 !important;
+      }
+      
+      .lm-tools-summary-modal .example-item::after {
+        content: "클릭하여 복사";
+        position: absolute;
+        bottom: 4px;
+        right: 8px;
+        font-size: 11px;
+        color: var(--text-muted, #72767d);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+      
+      .lm-tools-summary-modal .example-item:hover::after {
+        opacity: 1;
       }
     `;
     document.head.appendChild(style);
@@ -567,21 +708,45 @@ export default class LMTools implements BetterDiscordPlugin {
     };
 
     // 닫기 버튼들
-    modal.querySelectorAll('.close-button').forEach(button => {
+    modal.querySelectorAll('.close-button, .close-modal-button').forEach(button => {
       button.addEventListener('click', closeModal);
     });
 
-    // 복사 버튼
-    const copyButton = modal.querySelector('.copy-button');
-    if (copyButton) {
-      copyButton.addEventListener('click', () => {
-        navigator.clipboard.writeText(summary.summary).then(() => {
-          BdApi.UI.showToast('요약 내용이 클립보드에 복사되었습니다.', { type: 'success' });
+    // 요약 복사 버튼
+    const copySummaryButton = modal.querySelector('.copy-summary-button') as HTMLButtonElement;
+    if (copySummaryButton) {
+      copySummaryButton.addEventListener('click', () => {
+        const fullText = `대화 요약 (${summary.messageCount}개 메시지, ${summary.timeRange})\n\n${summaryData.summary}${
+          summaryData.examples ? '\n\n추천 답변 예시:\n' + summaryData.examples.map((ex, i) => `${i + 1}. ${ex}`).join('\n') : ''
+        }`;
+        navigator.clipboard.writeText(fullText).then(() => {
+          BdApi.UI.showToast('요약이 클립보드에 복사되었습니다!', { type: 'success' });
         }).catch(() => {
           BdApi.UI.showToast('복사에 실패했습니다.', { type: 'error' });
         });
       });
     }
+
+    // 예시 항목 클릭 이벤트
+    modal.querySelectorAll('.example-item').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        const example = (item as HTMLElement).dataset.example;
+        if (example) {
+          navigator.clipboard.writeText(example).then(() => {
+            BdApi.UI.showToast('예시 답변이 클립보드에 복사되었습니다!', { type: 'success' });
+            
+            // 시각적 피드백
+            const originalBorder = (item as HTMLElement).style.borderColor;
+            (item as HTMLElement).style.borderColor = 'var(--status-positive, #43b581)';
+            setTimeout(() => {
+              (item as HTMLElement).style.borderColor = originalBorder;
+            }, 500);
+          }).catch(() => {
+            BdApi.UI.showToast('복사에 실패했습니다.', { type: 'error' });
+          });
+        }
+      });
+    });
 
     // 오버레이 클릭으로 닫기
     modalOverlay.addEventListener('click', (e) => {

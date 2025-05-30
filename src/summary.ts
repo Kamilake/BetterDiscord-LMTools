@@ -314,26 +314,6 @@ export class ConversationSummarizer {
     return `지난 ${hours}시간`;
   }
 
-  private generateDummySummary(): string {
-    const summaryTemplates = [
-      "최근 대화에서는 프로젝트 진행 상황과 기술적 이슈들에 대해 논의했습니다. 주요 내용으로는 새로운 기능 구현, 버그 수정, 그리고 향후 개발 방향에 대한 의견 교환이 있었습니다.",
-      "사용자들이 제품 사용 경험을 공유하고, 개선사항에 대한 피드백을 제공했습니다. 특히 UI/UX 개선과 성능 최적화에 대한 요청이 많았습니다.",
-      "팀 회의에서 다음 스프린트 계획과 작업 분배에 대해 논의했습니다. 각 팀원의 역할과 책임, 마감일정 등이 정해졌습니다.",
-      "기술 토론에서 새로운 도구와 라이브러리 도입에 대해 논의했습니다. 장단점을 비교하고 프로젝트에 적합한 선택을 하기 위한 의견을 나누었습니다."
-    ];
-    
-    return summaryTemplates[Math.floor(Math.random() * summaryTemplates.length)];
-  }
-
-  private generateTimeRange(): string {
-    const hours = Math.floor(Math.random() * 12) + 1;
-    return `지난 ${hours}시간`;
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
   // 실제 API 호출 메서드
   private async callLMAPI(messages: string[]): Promise<string> {
     const config = this.settingsManager.getApiConfiguration();
@@ -366,7 +346,7 @@ export class ConversationSummarizer {
       messages: [
         {
           role: "system",
-          content: "당신은 Discord 대화를 요약하는 전문가입니다. 대화의 핵심 내용과 주요 논점을 간결하고 이해하기 쉽게 요약해 주세요."
+          content: "당신은 Discord 대화를 요약하는 전문가입니다. 대화의 핵심 내용과 주요 논점을 간결하고 이해하기 쉽게 요약해 주세요. 응답은 JSON 형식만 허용됩니다."
         },
         {
           role: "user", 
@@ -443,16 +423,33 @@ export class ConversationSummarizer {
   private generateSummaryPrompt(conversationText: string): string {
     return `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
 
-주요 요구사항:
+주요 응답 요구사항:
 1. 대화의 핵심 주제와 내용을 파악하여 요약
 2. 중요한 의견이나 결정사항이 있다면 포함
 3. 참여자들의 주요 관점이나 의견 차이가 있다면 언급
 4. 3-5문장 정도의 간결한 요약
 5. 불필요한 인사말이나 짧은 반응은 제외
 
+주요 예시 대답 요구사항:
+1. 예시 대답이란, 대화의 흐름에 맞춰 작성된 참여자의 입장에서 하는 대답입니다.
+2. 마지막 대화에 대한 적절한 반응을 작성
+3. 한국어가 아닌 경우, 원문 언어로 제공
+
+
+응답 형식:
+\`\`\`json
+{
+  "summary": "여기에 요약 내용이 들어갑니다.",
+  "examples": [
+    "예시 대답 1",
+    "예시 대답 2",
+    "예시 대답 3"
+  ]
+}
+\`\`\`
+
 대화 내용:
 ${conversationText}
-
-요약:`;
+`;
   }
 }
