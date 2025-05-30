@@ -18,7 +18,7 @@ module.exports = {
   mode: "development",
   target: "node",
   devtool: false,
-  entry: "./src/index.js",
+  entry: "./src/index.ts",
   output: {
     filename: "LMTools.plugin.js",
     path: path.join(__dirname, "dist"),
@@ -26,12 +26,12 @@ module.exports = {
     libraryExport: "default",
     compareBeforeEmit: false
   },  resolve: {
-    extensions: [".js", ".jsx", ".css"],
-  },
-  module: {
+    extensions: [".js", ".jsx", ".ts", ".tsx", ".css"],
+  },  module: {
     rules: [
       {test: /\.css$/, use: "raw-loader"},
-      {test: /\.jsx$/, exclude: /node_modules/, use: "babel-loader"}
+      {test: /\.(jsx|tsx)$/, exclude: /node_modules/, use: "babel-loader"},
+      {test: /\.(ts|tsx)$/, exclude: /node_modules/, use: "babel-loader"}
     ]
   },plugins: [
     new webpack.BannerPlugin({raw: true, banner: meta}),
