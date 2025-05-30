@@ -275,11 +275,13 @@ export class ConversationSummarizer {
         }
       }).filter((msg): msg is DiscordMessage => msg !== null && msg.content !== '');
 
-      // 토큰 절약을 위해 하위 20개의 메시지만 유지
-      const recentMessages = messages.slice(-20);
+      // 설정된 개수만큼 최근 메시지 유지 (0이면 무제한)
+      const messageLimit = this.settingsManager.get('messageLimit');
+      const recentMessages = messageLimit > 0 ? messages.slice(-messageLimit) : messages;
       
       console.log(`[DEBUG] Final results:`);
       console.log(`[DEBUG] Total valid messages extracted: ${messages.length}`);
+      console.log(`[DEBUG] Message limit setting: ${messageLimit === 0 ? '무제한' : messageLimit + '개'}`);
       console.log(`[DEBUG] Returning recent messages: ${recentMessages.length}`);
       
       if (recentMessages.length > 0) {

@@ -13,6 +13,7 @@ export interface PluginSettings {
   anthropicModel: string;
   maxTokens: number;
   temperature: number;
+  messageLimit: number;
 }
 
 export const defaultSettings: PluginSettings = {
@@ -25,7 +26,8 @@ export const defaultSettings: PluginSettings = {
   anthropicApiKey: '',
   anthropicModel: 'claude-3-sonnet-20240229',
   maxTokens: 2048,
-  temperature: 0.7
+  temperature: 0.7,
+  messageLimit: 20
 };
 
 export const settingsConfig: SettingConfig[] = [
@@ -145,6 +147,26 @@ export const settingsConfig: SettingConfig[] = [
         min: 0,
         max: 1,
         step: 0.1
+      }
+    ]
+  },
+  {
+    type: 'category',
+    id: 'summary',
+    name: '대화 요약 설정',
+    collapsible: true,
+    shown: true,
+    settings: [
+      {
+        type: 'slider',
+        id: 'messageLimit',
+        name: '메시지 개수 제한',
+        note: '요약에 포함할 최대 메시지 개수입니다. 0으로 설정하면 무제한입니다.',
+        value: 20,
+        min: 0,
+        max: 100,
+        step: 1,
+        units: '개'
       }
     ]
   }
