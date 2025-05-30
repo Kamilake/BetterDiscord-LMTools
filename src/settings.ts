@@ -230,4 +230,15 @@ export class SettingsManager {
       ? 'https://api.openai.com/v1'
       : 'https://api.anthropic.com/v1';
   }
+
+  getApiConfiguration() {
+    return {
+      provider: this.getCurrentProvider(),
+      apiKey: this.getCurrentApiKey(),
+      model: this.getCurrentModel(),
+      endpoint: this.getApiEndpoint(),
+      maxTokens: this.get('maxTokens'),
+      temperature: this.get('temperature')
+    };
+  }
 }

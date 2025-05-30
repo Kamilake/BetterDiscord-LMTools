@@ -18,6 +18,16 @@ export interface BdApi {
   };
   UI: {
     buildSettingsPanel(options: SettingsPanelOptions): React.ReactElement;
+    showToast(message: string, options?: { type?: 'info' | 'success' | 'error' | 'warning' }): void;
+  };
+  Patcher: {
+    before(caller: string, moduleToPatch: any, functionName: string, callback: Function): Function;
+    after(caller: string, moduleToPatch: any, functionName: string, callback: Function): Function;
+    unpatchAll(caller: string): void;
+  };
+  Webpack: {
+    getModule(filter: Function): any;
+    getByDisplayName(displayName: string): any;
   };
 }
 
@@ -59,6 +69,23 @@ export interface BetterDiscordPlugin {
   start(): void;
   stop(): void;
   getSettingsPanel?(): React.ComponentType | React.ReactElement;
+}
+
+export interface ChannelTextAreaButtonsProps {
+  channel: {
+    id: string;
+    guild_id?: string;
+    type: number;
+  };
+  disabled?: boolean;
+}
+
+export interface MessageSummary {
+  channelId: string;
+  summary: string;
+  messageCount: number;
+  timeRange: string;
+  createdAt: Date;
 }
 
 declare const BdApi: BdApi;
