@@ -22,9 +22,9 @@ export const defaultSettings: PluginSettings = {
   theme: 'auto',
   apiProvider: 'openai',
   openaiApiKey: '',
-  openaiModel: 'gpt-3.5-turbo',
+  openaiModel: 'gpt-4.1-nano',
   anthropicApiKey: '',
-  anthropicModel: 'claude-3-sonnet-20240229',
+  anthropicModel: 'claude-3-5-haiku-latest',
   maxTokens: 2048,
   temperature: 0.7,
   messageLimit: 20
@@ -95,14 +95,14 @@ export const settingsConfig: SettingConfig[] = [
         type: 'dropdown',
         id: 'openaiModel',
         name: 'OpenAI 모델',
-        note: '사용할 OpenAI 모델을 선택하세요.',
-        value: 'gpt-3.5-turbo',
+        note: '사용할 OpenAI 모델을 선택하세요. 가격은 100만 토큰당 USD입니다.',
+        value: 'gpt-4.1-nano',
         options: [
-          { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' },
-          { label: 'GPT-3.5 Turbo 16k', value: 'gpt-3.5-turbo-16k' },
-          { label: 'GPT-4', value: 'gpt-4' },
-          { label: 'GPT-4 Turbo', value: 'gpt-4-turbo-preview' },
-          { label: 'GPT-4 Vision', value: 'gpt-4-vision-preview' }
+          { label: 'GPT-4.1 Nano (입력: $0.1, 출력: $0.4)', value: 'gpt-4.1-nano' },
+          { label: 'GPT-4.1 Mini (입력: $0.4, 출력: $1.6)', value: 'gpt-4.1-mini' },
+          { label: 'GPT-4.1 (입력: $2, 출력: $8)', value: 'gpt-4.1' },
+          { label: 'GPT-4o (입력: $2.5, 출력: $10)', value: 'gpt-4o' },
+          { label: 'o4-Mini (입력: $1.1, 출력: $4.4)', value: 'o4-mini' }
         ]
       },
       {
@@ -116,15 +116,14 @@ export const settingsConfig: SettingConfig[] = [
         type: 'dropdown',
         id: 'anthropicModel',
         name: 'Anthropic 모델',
-        note: '사용할 Anthropic 모델을 선택하세요.',
-        value: 'claude-3-sonnet-20240229',
+        note: '사용할 Anthropic 모델을 선택하세요. 가격은 100만 토큰당 USD입니다.',
+        value: 'claude-3-5-haiku-latest',
         options: [
-          { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229' },
-          { label: 'Claude 3 Sonnet', value: 'claude-3-sonnet-20240229' },
-          { label: 'Claude 3 Haiku', value: 'claude-3-haiku-20240307' },
-          { label: 'Claude 2.1', value: 'claude-2.1' },
-          { label: 'Claude 2.0', value: 'claude-2.0' },
-          { label: 'Claude Instant 1.2', value: 'claude-instant-1.2' }
+          { label: 'Claude 3.5 Haiku (입력: $0.8, 출력: $4)', value: 'claude-3-5-haiku-latest' },
+          { label: 'Claude 3.5 Sonnet (입력: $3, 출력: $15)', value: 'claude-3-5-sonnet-latest' },
+          { label: 'Claude 3.7 Sonnet (입력: $3, 출력: $15)', value: 'claude-3-7-sonnet-latest' },
+          { label: 'Claude 4 Sonnet (입력: $4, 출력: $15)', value: 'claude-sonnet-4-20250514' },
+          { label: 'Claude 4 Opus (입력: $15, 출력: $75)', value: 'claude-opus-4-20250514' }
         ]
       },
       {
