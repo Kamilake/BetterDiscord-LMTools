@@ -88,4 +88,13 @@ export interface MessageSummary {
   createdAt: Date;
 }
 
+export interface DiscordMessage {
+  id: string;
+  username: string;
+  content: string;
+  timestamp?: string;
+  referenceMessage?: string;
+  referenceUsername?: string;
+}
+
 declare const BdApi: BdApi;
