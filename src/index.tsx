@@ -1,17 +1,17 @@
-import React from "react";
-import { SummarizeButton } from "./component";
+import { SummarizeButton, PromptEditor, ChannelPromptManager } from "./component";
 import styles from "./styles.css";
-import { BetterDiscordPlugin, PluginMeta } from "./types/betterdiscord";
+import type { BetterDiscordPlugin, PluginMeta } from "./types/betterdiscord";
 import { SettingsManager } from "./settings";
 import { ConversationSummarizer } from "./summary";
 
+// BdApi 전역 변수 선언
 declare const BdApi: {
   DOM: {
     addStyle(id: string, css: string): void;
     removeStyle(id: string): void;
   };
   UI: {
-    buildSettingsPanel(options: any): React.ReactElement;
+    buildSettingsPanel(options: any): any;
     showToast(message: string, options?: { type?: 'info' | 'success' | 'error' | 'warning' }): void;
   };
   Patcher: {
@@ -23,8 +23,19 @@ declare const BdApi: {
     getModule(filter: Function): any;
     getByDisplayName(displayName: string): any;
   };
-  React: typeof React;
+  React: {
+    useState<T>(initialState: T | (() => T)): [T, (value: T | ((prev: T) => T)) => void];
+    createElement(
+      type: any,
+      props?: any,
+      ...children: any[]
+    ): any;
+    Fragment: any;
+  };
 };
+
+// React를 BdApi에서 가져오기
+declare const React: typeof BdApi.React;
 
 export default class LMTools implements BetterDiscordPlugin {
   private meta: PluginMeta;
@@ -209,7 +220,8 @@ export default class LMTools implements BetterDiscordPlugin {
             BdApi.React.createElement(SummarizeButton, {
               key: 'summarize-button',
               channelId: props.channel.id,
-              onSummarize: this.handleSummarize.bind(this)
+              onSummarize: this.handleSummarize.bind(this),
+              settingsManager: this.settingsManager
             })
           );
           
@@ -766,7 +778,8 @@ export default class LMTools implements BetterDiscordPlugin {
   }
 
   getSettingsPanel(): React.ReactElement {
-    return BdApi.UI.buildSettingsPanel({
+    // BetterDiscord의 기본 설정 패널 생성
+    const basePanel = BdApi.UI.buildSettingsPanel({
       settings: this.settingsManager.updateSettingsConfig(),
       onChange: (category: string, id: string, value: any) => {
         console.log(`Setting changed - Category: ${category}, ID: ${id}, Value:`, value);
@@ -774,6 +787,63 @@ export default class LMTools implements BetterDiscordPlugin {
         this.onSettingChanged(id, value);
       }
     });
+
+    // 커스텀 프롬프트 설정 UI를 추가하기 위한 래퍼 컴포넌트
+    const SettingsPanelWrapper = () => {
+      const [defaultPrompt, setDefaultPrompt] = BdApi.React.useState(
+        this.settingsManager.get('defaultPrompt') || ''
+      );
+      const [currentChannelId] = BdApi.React.useState(this.getCurrentChannelId());
+
+      const handleDefaultPromptChange = (value: string) => {
+        setDefaultPrompt(value);
+        this.settingsManager.setDefaultPrompt(value);
+      };
+
+      return (
+        <div>
+          {/* 기본 설정 패널 */}
+          {basePanel}
+          
+          {/* 프롬프트 설정 섹션 */}
+          <div style={{
+            marginTop: '20px',
+            padding: '20px',
+            backgroundColor: 'var(--background-secondary)',
+            borderRadius: '8px',
+            border: '1px solid var(--background-modifier-accent)'
+          }}>
+            <h2 style={{
+              color: 'var(--header-primary)',
+              marginBottom: '16px',
+              fontSize: '20px',
+              fontWeight: 600
+            }}>
+              프롬프트 설정
+            </h2>
+            
+            {/* 기본 프롬프트 편집기 */}
+            <PromptEditor
+              value={defaultPrompt}
+              onChange={handleDefaultPromptChange}
+              label="기본 프롬프트"
+              note="모든 채널에서 사용할 기본 프롬프트입니다. 비워두면 내장된 기본 프롬프트를 사용합니다."
+              showExampleButton={true}
+            />
+            
+            {/* 채널별 프롬프트 관리자 */}
+            <div style={{ marginTop: '30px' }}>
+              <ChannelPromptManager
+                settingsManager={this.settingsManager}
+                currentChannelId={currentChannelId || undefined}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    return BdApi.React.createElement(SettingsPanelWrapper);
   }
 
   private onSettingChanged(id: string, value: any): void {

@@ -14,6 +14,8 @@ export interface PluginSettings {
   maxTokens: number;
   temperature: number;
   messageLimit: number;
+  defaultPrompt: string;
+  channelPrompts: Record<string, string>;
 }
 
 export const defaultSettings: PluginSettings = {
@@ -27,7 +29,133 @@ export const defaultSettings: PluginSettings = {
   anthropicModel: 'claude-3-5-haiku-latest',
   maxTokens: 2048,
   temperature: 0.7,
-  messageLimit: 20
+  messageLimit: 20,
+  defaultPrompt: '',
+  channelPrompts: {}
+};
+
+// 하드코딩된 기본 프롬프트 (사용자가 아무것도 설정하지 않았을 때 사용)
+export const HARDCODED_DEFAULT_PROMPT = `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
+
+주요 응답 요구사항:
+1. 대화의 핵심 주제와 내용을 파악하여 요약
+2. 중요한 의견이나 결정사항이 있다면 포함
+3. 참여자들의 주요 관점이나 의견 차이가 있다면 언급
+4. 3-5문장 정도의 간결한 요약
+5. 불필요한 인사말이나 짧은 반응은 제외
+
+주요 예시 대답 요구사항:
+1. 예시 대답이란, 대화의 흐름에 맞춰 작성된 {{username}}의 입장에서 하는 대답입니다.
+2. 마지막 대화에 대한 적절한 반응을 작성
+3. 한국어가 아닌 경우, 원문 언어로 제공
+
+
+응답 형식:
+\`\`\`json
+{
+  "summary": "여기에 요약 내용이 들어갑니다.",
+  "examples": [
+    "예시 대답 1",
+    "예시 대답 2",
+    "예시 대답 3"
+  ]
+}
+\`\`\`
+
+대화 내용:
+{{conversation}}`;
+
+// 예제 프롬프트들
+export const EXAMPLE_PROMPTS = {
+  technical: `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
+
+주요 응답 요구사항:
+1. 대화의 핵심 주제와 내용을 파악하여 요약
+2. 중요한 의견이나 결정사항이 있다면 포함
+3. 참여자들의 주요 관점이나 의견 차이가 있다면 언급
+4. 3-5문장 정도의 간결한 요약
+5. 불필요한 인사말이나 짧은 반응은 제외
+
+주요 예시 대답 요구사항:
+1. 예시 대답이란, 대화의 흐름에 맞춰 작성된 {{username}}의 입장에서 하는 대답입니다.
+2. 마지막 대화에 대한 적절한 반응을 작성
+3. 한국어가 아닌 경우, 원문 언어로 제공
+
+
+응답 형식:
+\`\`\`json
+{
+  "summary": "여기에 요약 내용이 들어갑니다.",
+  "examples": [
+    "예시 대답 1",
+    "예시 대답 2",
+    "예시 대답 3"
+  ]
+}
+\`\`\`
+
+대화 내용:
+{{conversation}}`,
+  
+  default: `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
+
+주요 응답 요구사항:
+1. 대화의 핵심 주제와 내용을 파악하여 요약
+2. 중요한 의견이나 결정사항이 있다면 포함
+3. 참여자들의 주요 관점이나 의견 차이가 있다면 언급
+4. 3-5문장 정도의 간결한 요약
+5. 불필요한 인사말이나 짧은 반응은 제외
+
+주요 예시 대답 요구사항:
+1. 예시 대답이란, 대화의 흐름에 맞춰 작성된 {{username}}의 입장에서 하는 대답입니다.
+2. 마지막 대화에 대한 적절한 반응을 작성
+3. 한국어가 아닌 경우, 원문 언어로 제공
+
+
+응답 형식:
+\`\`\`json
+{
+  "summary": "여기에 요약 내용이 들어갑니다.",
+  "examples": [
+    "예시 대답 1",
+    "예시 대답 2",
+    "예시 대답 3"
+  ]
+}
+\`\`\`
+
+대화 내용:
+{{conversation}}`,
+  
+  casual: `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
+
+주요 응답 요구사항:
+1. 대화의 핵심 주제와 내용을 파악하여 요약
+2. 중요한 의견이나 결정사항이 있다면 포함
+3. 참여자들의 주요 관점이나 의견 차이가 있다면 언급
+4. 3-5문장 정도의 간결한 요약
+5. 불필요한 인사말이나 짧은 반응은 제외
+
+주요 예시 대답 요구사항:
+1. 예시 대답이란, 대화의 흐름에 맞춰 작성된 {{username}}의 입장에서 하는 대답입니다.
+2. 마지막 대화에 대한 적절한 반응을 작성
+3. 한국어가 아닌 경우, 원문 언어로 제공
+
+
+응답 형식:
+\`\`\`json
+{
+  "summary": "여기에 요약 내용이 들어갑니다.",
+  "examples": [
+    "예시 대답 1",
+    "예시 대답 2",
+    "예시 대답 3"
+  ]
+}
+\`\`\`
+
+대화 내용:
+{{conversation}}`
 };
 
 export const settingsConfig: SettingConfig[] = [
@@ -166,6 +294,30 @@ export const settingsConfig: SettingConfig[] = [
         max: 100,
         step: 1,
         units: '개'
+      },
+      {
+        type: 'text',
+        id: 'defaultPrompt',
+        name: '기본 프롬프트',
+        note: '모든 채널에서 사용할 기본 프롬프트입니다. 비워두면 내장된 기본 프롬프트를 사용합니다. {{username}}과 {{conversation}}을 변수로 사용할 수 있습니다.',
+        value: ''
+      }
+    ]
+  },
+  {
+    type: 'category',
+    id: 'channelPrompts',
+    name: '채널별 프롬프트',
+    collapsible: true,
+    shown: false,
+    settings: [
+      {
+        type: 'text',
+        id: 'channelPromptsInfo',
+        name: '채널별 프롬프트 설정',
+        note: '특정 채널에서 사용할 커스텀 프롬프트를 설정하려면 해당 채널에서 플러그인을 사용하세요.',
+        value: '',
+        disabled: true
       }
     ]
   }
@@ -261,5 +413,52 @@ export class SettingsManager {
       maxTokens: this.get('maxTokens'),
       temperature: this.get('temperature')
     };
+  }
+
+  // 프롬프트 관련 메서드들
+  getPromptForChannel(channelId: string): string {
+    // 우선순위: 채널별 프롬프트 > 사용자 지정 기본 프롬프트 > 하드코딩된 기본 프롬프트
+    const channelPrompt = this.settings.channelPrompts[channelId];
+    if (channelPrompt && channelPrompt.trim() !== '') {
+      return channelPrompt;
+    }
+
+    const defaultPrompt = this.settings.defaultPrompt;
+    if (defaultPrompt && defaultPrompt.trim() !== '') {
+      return defaultPrompt;
+    }
+
+    return HARDCODED_DEFAULT_PROMPT;
+  }
+
+  setChannelPrompt(channelId: string, prompt: string): void {
+    if (!this.settings.channelPrompts) {
+      this.settings.channelPrompts = {};
+    }
+    
+    if (prompt.trim() === '') {
+      // 빈 문자열이면 채널 프롬프트 삭제
+      delete this.settings.channelPrompts[channelId];
+    } else {
+      this.settings.channelPrompts[channelId] = prompt;
+    }
+    
+    this.saveSettings();
+  }
+
+  getChannelPrompt(channelId: string): string {
+    return this.settings.channelPrompts[channelId] || '';
+  }
+
+  setDefaultPrompt(prompt: string): void {
+    this.set('defaultPrompt', prompt);
+  }
+
+  loadExamplePrompt(type: keyof typeof EXAMPLE_PROMPTS): string {
+    return EXAMPLE_PROMPTS[type] || EXAMPLE_PROMPTS.technical;
+  }
+
+  getExamplePrompts(): typeof EXAMPLE_PROMPTS {
+    return EXAMPLE_PROMPTS;
   }
 }

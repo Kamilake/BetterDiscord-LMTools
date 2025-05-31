@@ -25,8 +25,8 @@ export class ConversationSummarizer {
         throw new Error('현재 채널에서 메시지를 찾을 수 없습니다. 메시지가 로드된 상태에서 다시 시도해주세요.');
       }
 
-      // 실제 API 호출 (아직 더미)
-      const summary = await this.callLMAPI(messages.map(m => `${m.username}: ${m.content}`));
+      // 실제 API 호출 - channelId 전달
+      const summary = await this.callLMAPI(messages.map(m => `${m.username}: ${m.content}`), channelId);
       
       const result: MessageSummary = {
         channelId,
@@ -361,7 +361,7 @@ export class ConversationSummarizer {
   }
 
   // 실제 API 호출 메서드
-  private async callLMAPI(messages: string[]): Promise<string> {
+  private async callLMAPI(messages: string[], channelId: string): Promise<string> {
     const config = this.settingsManager.getApiConfiguration();
     
     if (!config.apiKey || config.apiKey.trim() === '') {
@@ -372,9 +372,9 @@ export class ConversationSummarizer {
     
     try {
       if (config.provider === 'openai') {
-        return await this.callOpenAIAPI(conversationText, config);
+        return await this.callOpenAIAPI(conversationText, config, channelId);
       } else if (config.provider === 'anthropic') {
-        return await this.callAnthropicAPI(conversationText, config);
+        return await this.callAnthropicAPI(conversationText, config, channelId);
       } else {
         throw new Error(`지원하지 않는 API 공급자: ${config.provider}`);
       }
@@ -384,8 +384,8 @@ export class ConversationSummarizer {
     }
   }
 
-  private async callOpenAIAPI(conversationText: string, config: any): Promise<string> {
-    const prompt = this.generateSummaryPrompt(conversationText);
+  private async callOpenAIAPI(conversationText: string, config: any, channelId: string): Promise<string> {
+    const prompt = this.generateSummaryPrompt(conversationText, channelId);
     console.log(`Generated prompt for OpenAI API`);
     console.log(prompt);
     
@@ -442,8 +442,8 @@ export class ConversationSummarizer {
     return data.choices[0].message.content.trim();
   }
 
-  private async callAnthropicAPI(conversationText: string, config: any): Promise<string> {
-    const prompt = this.generateSummaryPrompt(conversationText);
+  private async callAnthropicAPI(conversationText: string, config: any, channelId: string): Promise<string> {
+    const prompt = this.generateSummaryPrompt(conversationText, channelId);
     
     const requestBody = {
       model: config.model,
@@ -482,40 +482,20 @@ export class ConversationSummarizer {
     return data.content[0].text.trim();
   }
 
-  private generateSummaryPrompt(conversationText: string): string {
+  private generateSummaryPrompt(conversationText: string, channelId: string): string {
     // 현재 사용자의 이름 가져오기
     const username = this.getCurrentUsername();
     console.log(`Current username for prompt: ${username}`);
     
-    return `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
-
-주요 응답 요구사항:
-1. 대화의 핵심 주제와 내용을 파악하여 요약
-2. 중요한 의견이나 결정사항이 있다면 포함
-3. 참여자들의 주요 관점이나 의견 차이가 있다면 언급
-4. 3-5문장 정도의 간결한 요약
-5. 불필요한 인사말이나 짧은 반응은 제외
-
-주요 예시 대답 요구사항:
-1. 예시 대답이란, 대화의 흐름에 맞춰 작성된 ${username}의 입장에서 하는 대답입니다.
-2. 마지막 대화에 대한 적절한 반응을 작성
-3. 한국어가 아닌 경우, 원문 언어로 제공
-
-
-응답 형식:
-\`\`\`json
-{
-  "summary": "여기에 요약 내용이 들어갑니다.",
-  "examples": [
-    "예시 대답 1",
-    "예시 대답 2",
-    "예시 대답 3"
-  ]
-}
-\`\`\`
-
-대화 내용:
-${conversationText}
-`;
+    // 채널별 프롬프트 가져오기
+    const promptTemplate = this.settingsManager.getPromptForChannel(channelId);
+    console.log(`Using prompt for channel ${channelId}:`, promptTemplate.substring(0, 100) + '...');
+    
+    // 변수 치환
+    const prompt = promptTemplate
+      .replace(/\{\{username\}\}/g, username)
+      .replace(/\{\{conversation\}\}/g, conversationText);
+    
+    return prompt;
   }
 }

@@ -18,16 +18,22 @@ module.exports = {
   mode: "development",
   target: "node",
   devtool: false,
-  entry: "./src/index.ts",
+  entry: "./src/index.tsx",
   output: {
     filename: "LMTools.plugin.js",
     path: path.join(__dirname, "dist"),
     libraryTarget: "commonjs2",
     libraryExport: "default",
     compareBeforeEmit: false
-  },  resolve: {
+  },
+  externals: {
+    "react": "BdApi.React",
+    "react-dom": "BdApi.ReactDOM"
+  },
+  resolve: {
     extensions: [".js", ".jsx", ".ts", ".tsx", ".css"],
-  },  module: {
+  },
+  module: {
     rules: [
       {test: /\.css$/, use: "raw-loader"},
       {test: /\.(jsx|tsx)$/, exclude: /node_modules/, use: "babel-loader"},
