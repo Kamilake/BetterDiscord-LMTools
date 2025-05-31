@@ -1,7 +1,7 @@
 {
   "name": "betterdiscord-lmtools",
   "version": "1.0.0",
-  "description": "",
+  "description": "AI-powered Discord conversation summarizer with context-aware response suggestions",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

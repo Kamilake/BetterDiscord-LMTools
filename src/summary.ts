@@ -8,8 +8,11 @@ export class ConversationSummarizer {
     this.settingsManager = settingsManager;
   }
 
-  async summarizeChannel(channelId: string): Promise<MessageSummary> {
+  async summarizeChannel(channelId: string, inputText?: string): Promise<MessageSummary> {
     console.log(`Summarizing conversation in channel: ${channelId}`);
+    if (inputText) {
+      console.log(`Additional input text provided: ${inputText.substring(0, 100)}...`);
+    }
     
     // API 설정 확인
     if (!this.settingsManager.isApiKeyConfigured()) {
@@ -25,8 +28,8 @@ export class ConversationSummarizer {
         throw new Error('현재 채널에서 메시지를 찾을 수 없습니다. 메시지가 로드된 상태에서 다시 시도해주세요.');
       }
 
-      // 실제 API 호출 - channelId 전달
-      const summary = await this.callLMAPI(messages.map(m => `${m.username}: ${m.content}`), channelId);
+      // 실제 API 호출 - channelId와 선택적 inputText 전달
+      const summary = await this.callLMAPI(messages.map(m => `${m.username}: ${m.content}`), channelId, inputText);
       
       const result: MessageSummary = {
         channelId,
@@ -361,7 +364,7 @@ export class ConversationSummarizer {
   }
 
   // 실제 API 호출 메서드
-  private async callLMAPI(messages: string[], channelId: string): Promise<string> {
+  private async callLMAPI(messages: string[], channelId: string, inputText?: string): Promise<string> {
     const config = this.settingsManager.getApiConfiguration();
     
     if (!config.apiKey || config.apiKey.trim() === '') {
@@ -372,9 +375,9 @@ export class ConversationSummarizer {
     
     try {
       if (config.provider === 'openai') {
-        return await this.callOpenAIAPI(conversationText, config, channelId);
+        return await this.callOpenAIAPI(conversationText, config, channelId, inputText);
       } else if (config.provider === 'anthropic') {
-        return await this.callAnthropicAPI(conversationText, config, channelId);
+        return await this.callAnthropicAPI(conversationText, config, channelId, inputText);
       } else {
         throw new Error(`지원하지 않는 API 공급자: ${config.provider}`);
       }
@@ -384,8 +387,8 @@ export class ConversationSummarizer {
     }
   }
 
-  private async callOpenAIAPI(conversationText: string, config: any, channelId: string): Promise<string> {
-    const prompt = this.generateSummaryPrompt(conversationText, channelId);
+  private async callOpenAIAPI(conversationText: string, config: any, channelId: string, inputText?: string): Promise<string> {
+    const prompt = this.generateSummaryPrompt(conversationText, channelId, inputText);
     console.log(`Generated prompt for OpenAI API`);
     console.log(prompt);
     
@@ -442,8 +445,8 @@ export class ConversationSummarizer {
     return data.choices[0].message.content.trim();
   }
 
-  private async callAnthropicAPI(conversationText: string, config: any, channelId: string): Promise<string> {
-    const prompt = this.generateSummaryPrompt(conversationText, channelId);
+  private async callAnthropicAPI(conversationText: string, config: any, channelId: string, inputText?: string): Promise<string> {
+    const prompt = this.generateSummaryPrompt(conversationText, channelId, inputText);
     
     const requestBody = {
       model: config.model,
@@ -482,7 +485,7 @@ export class ConversationSummarizer {
     return data.content[0].text.trim();
   }
 
-  private generateSummaryPrompt(conversationText: string, channelId: string): string {
+  private generateSummaryPrompt(conversationText: string, channelId: string, inputText?: string): string {
     // 현재 사용자의 이름 가져오기
     const username = this.getCurrentUsername();
     console.log(`Current username for prompt: ${username}`);
@@ -492,9 +495,14 @@ export class ConversationSummarizer {
     console.log(`Using prompt for channel ${channelId}:`, promptTemplate.substring(0, 100) + '...');
     
     // 변수 치환
-    const prompt = promptTemplate
+    let prompt = promptTemplate
       .replace(/\{\{username\}\}/g, username)
       .replace(/\{\{conversation\}\}/g, conversationText);
+    
+    // 입력 텍스트가 있으면 프롬프트 끝에 추가
+    if (inputText && inputText.trim()) {
+      prompt += `\n\n사용자가 원래 하려던 답장:\n\`\`\`\n${inputText}\n\`\`\`\n이 답장도 고려하여 대화를 요약하고, 특히 이 답변의 맥락과 의도를 반영한 답변 예시를 생성해주세요.`;
+    }
     
     return prompt;
   }

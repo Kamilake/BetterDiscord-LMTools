@@ -429,10 +429,36 @@ export default class LMTools implements BetterDiscordPlugin {
     try {
       console.log(`Summarizing conversation in channel: ${channelId}`);
       
-      // 시작 알림
-      BdApi.UI.showToast('대화 요약을 시작합니다...', { type: 'info' });
+      // Discord 채팅 입력창에서 텍스트 가져오기
+      let inputText = '';
       
-      const summary = await this.summarizer.summarizeChannel(channelId);
+      // Slate editor에서 텍스트 추출
+      const textArea = document.querySelector('[data-slate-editor="true"]') as HTMLElement;
+      if (textArea) {
+        const textNodes = textArea.querySelectorAll('[data-slate-node="text"]');
+        inputText = Array.from(textNodes).map(node => node.textContent || '').join('');
+      } else {
+        // 대체 방법: contenteditable div의 innerText
+        const inputContainer = document.querySelector('[class*="slateTextArea"]');
+        if (inputContainer) {
+          const editableDiv = inputContainer.querySelector('[contenteditable="true"]');
+          if (editableDiv) {
+            inputText = (editableDiv as HTMLElement).innerText || '';
+          }
+        }
+      }
+      
+      inputText = inputText.trim();
+      
+      // 시작 알림
+      if (inputText) {
+        BdApi.UI.showToast('입력된 텍스트와 함께 대화 요약을 시작합니다...', { type: 'info' });
+        console.log(`Found input text: ${inputText.substring(0, 100)}...`);
+      } else {
+        BdApi.UI.showToast('대화 요약을 시작합니다...', { type: 'info' });
+      }
+      
+      const summary = await this.summarizer.summarizeChannel(channelId, inputText);
       
       // 요약 결과를 모달로 표시
       this.showSummaryModal(summary);
