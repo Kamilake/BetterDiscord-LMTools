@@ -138,7 +138,7 @@ npm run type-check:watch
 
 ## 📄 라이선스
 
-ISC License
+MIT License
 
 ## 🤝 기여하기
 
