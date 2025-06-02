@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+    - name: 📥 체크아웃
+      uses: actions/checkout@v4
+    
+    - name: 🔧 Node.js 설정
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: 📦 의존성 설치
+      run: npm ci
+    
+    - name: 🔍 타입 체크
+      run: npm run type-check
+    
+    - name: 🏭 프로덕션 빌드
+      run: npm run build:prod
+    
+    - name: 📝 버전 정보 추출
+      id: version
+      run: |
+        echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: 🎁 빌드 아티팩트 준비
+      run: |
+        mkdir release
+        cp dist/LMTools.plugin.js release/
+        cd release
+        # 체크섬 생성
+        sha256sum LMTools.plugin.js > LMTools.plugin.js.sha256
+        # 버전 정보 파일 생성
+        echo "${{ steps.version.outputs.VERSION }}" > VERSION
+        cd ..
+    
+    - name: 📋 릴리스 노트 생성
+      id: release_notes
+      run: |
+        # 릴리스 노트 생성
+        cat > release_notes.md << 'EOF'
+        ## 🚀 LM Tools ${{ steps.version.outputs.VERSION }}
+        
+        AI 기반 Discord 대화 요약 플러그인
+        
+        ### 📦 설치 방법
+        
+        1. **일반 사용자**: `LMTools.plugin.js` 파일을 다운로드하여 BetterDiscord 플러그인 폴더에 복사
+           - Windows: `%APPDATA%/BetterDiscord/plugins/`
+           - macOS: `~/Library/Application Support/BetterDiscord/plugins/`
+           - Linux: `~/.config/BetterDiscord/plugins/`
+        
+        2. **개발자**: 소스코드를 클론하여 직접 빌드
+           ```bash
+           git clone https://github.com/${{ github.repository }}.git
+           cd Betterdiscord-LMTools
+           npm install
+           npm run build:prod
+           ```
+        
+        ### 🔍 파일 무결성 검증
+        
+        SHA256 체크섬으로 다운로드한 파일의 무결성을 확인할 수 있습니다:
+        ```
+        EOF
+        cat release/LMTools.plugin.js.sha256 >> release_notes.md
+        echo '```' >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### 📝 변경사항" >> release_notes.md
+        echo "" >> release_notes.md
+        # 이전 태그부터 현재까지의 커밋 로그
+        git log $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")..HEAD --pretty=format:"- %s" >> release_notes.md || echo "- 첫 릴리스" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### 🔗 관련 링크" >> release_notes.md
+        echo "- [사용 가이드](https://github.com/${{ github.repository }}#-설치-및-사용)" >> release_notes.md
+        echo "- [개발자 가이드](https://github.com/${{ github.repository }}/blob/main/DEVELOPMENT.md)" >> release_notes.md
+        echo "- [문제 신고](https://github.com/${{ github.repository }}/issues)" >> release_notes.md
+    
+    - name: 🎉 GitHub 릴리스 생성
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release/LMTools.plugin.js
+          release/LMTools.plugin.js.sha256
+        body_path: release_notes.md
+        name: LM Tools ${{ steps.version.outputs.VERSION }}
+        draft: false
+        prerelease: ${{ contains(steps.version.outputs.VERSION, '-beta') || contains(steps.version.outputs.VERSION, '-alpha') }}

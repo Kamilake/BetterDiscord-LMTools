@@ -1,0 +1,37 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * MON'  # 매주 월요일 자정
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 체크아웃
+      uses: actions/checkout@v4
+    
+    - name: 🔧 Node.js 설정
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: 📦 의존성 설치
+      run: npm ci
+    
+    - name: 🔒 npm audit
+      run: |
+        echo "### 🔒 보안 취약점 검사"
+        npm audit --production || true
+    
+    - name: 🔍 의존성 업데이트 확인
+      run: |
+        npm install -g npm-check-updates
+        echo "### 📦 오래된 패키지 검사"
+        ncu --packageFile package.json

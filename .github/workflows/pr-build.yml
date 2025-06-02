@@ -1,0 +1,87 @@
+name: PR Build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-artifact:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 체크아웃
+      uses: actions/checkout@v4
+    
+    - name: 🔧 Node.js 설정
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: 📦 의존성 설치
+      run: npm ci
+    
+    - name: 🔍 타입 체크
+      run: npm run type-check
+    
+    - name: 🏗️ 개발 빌드
+      run: npm run build
+    
+    - name: 📤 개발 빌드 업로드
+      uses: actions/upload-artifact@v4
+      with:
+        name: LMTools-dev-pr${{ github.event.pull_request.number }}
+        path: dist/LMTools.plugin.js
+        retention-days: 7
+    
+    - name: 💬 PR 코멘트 추가
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const artifactUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+          
+          const body = `## 🏗️ 빌드 완료!
+          
+          개발 빌드가 성공적으로 완료되었습니다.
+          
+          ### 📦 테스트 방법
+          
+          1. [Actions 탭](${artifactUrl})에서 아티팩트 다운로드
+          2. BetterDiscord 플러그인 폴더에 복사
+          3. Discord에서 플러그인 활성화
+          
+          ### 🔍 빌드 정보
+          - 타입 체크: ✅ 통과
+          - 개발 빌드: ✅ 성공
+          - 아티팩트 이름: \`LMTools-dev-pr${{ github.event.pull_request.number }}\`
+          
+          ⚠️ **주의**: 이것은 개발 빌드입니다. 미니파이되지 않았으며 디버깅 정보가 포함되어 있을 수 있습니다.`;
+          
+          // 기존 코멘트 찾기
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && comment.body.includes('🏗️ 빌드 완료!')
+          );
+          
+          if (botComment) {
+            // 기존 코멘트 업데이트
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body
+            });
+          } else {
+            // 새 코멘트 생성
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+          }

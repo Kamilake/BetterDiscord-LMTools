@@ -6,7 +6,7 @@ const pluginConfig = require("./src/config.json");
 pluginConfig.version = pkg.version;
 
 const meta = (() => {
-  const lines = ["/**"];
+  const lines = ["/*!"];  // ! 추가로 terser가 주석을 보존하도록 함
   for (const key in pluginConfig) {
     lines.push(` * @${key} ${pluginConfig[key]}`);
   }
@@ -26,6 +26,19 @@ module.exports = {
     libraryExport: "default",
     compareBeforeEmit: false
   },
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new (require('terser-webpack-plugin'))({
+        terserOptions: {
+          format: {
+            comments: /^!/,  // BannerPlugin으로 추가된 주석 보존
+          },
+        },
+        extractComments: false,
+      }),
+    ],
+  },
   externals: {
     "react": "BdApi.React",
     "react-dom": "BdApi.ReactDOM"
@@ -39,8 +52,12 @@ module.exports = {
       {test: /\.(jsx|tsx)$/, exclude: /node_modules/, use: "babel-loader"},
       {test: /\.(ts|tsx)$/, exclude: /node_modules/, use: "babel-loader"}
     ]
-  },plugins: [
-    new webpack.BannerPlugin({raw: true, banner: meta}),
+  },
+  plugins: [
+    new webpack.BannerPlugin({
+      raw: true,
+      banner: meta
+    }),
     {
       apply: (compiler) => {
         compiler.hooks.assetEmitted.tap("CopyToBD", (filename, info) => {

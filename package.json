@@ -9,7 +9,9 @@
     "dev": "webpack --progress --color --watch",
     "build:prod": "webpack --mode=production --progress --color",
     "type-check": "tsc --noEmit",
-    "type-check:watch": "tsc --noEmit --watch"
+    "type-check:watch": "tsc --noEmit --watch",
+    "ci": "npm run type-check && npm run build:prod",
+    "prepublishOnly": "npm run ci"
   },
   "keywords": [],
   "author": "",

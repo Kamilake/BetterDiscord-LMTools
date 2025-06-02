@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: 📥 체크아웃
+      uses: actions/checkout@v4
+    
+    - name: 🔧 Node.js ${{ matrix.node-version }} 설정
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: 📦 의존성 설치
+      run: npm ci
+    
+    - name: 🔍 타입 체크
+      run: npm run type-check
+    
+    - name: 🏗️ 개발 빌드
+      run: npm run build
+    
+    - name: 🏭 프로덕션 빌드
+      run: npm run build:prod
+    
+    - name: 📊 빌드 결과 확인
+      run: |
+        echo "빌드 완료! 파일 정보:"
+        ls -la dist/
+        echo "파일 크기:"
+        du -h dist/*.js
