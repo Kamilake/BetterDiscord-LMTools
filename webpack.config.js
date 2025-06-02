@@ -6,10 +6,17 @@ const pluginConfig = require("./src/config.json");
 pluginConfig.version = pkg.version;
 
 const meta = (() => {
-  const lines = ["/*!"];  // ! 추가로 terser가 주석을 보존하도록 함
-  for (const key in pluginConfig) {
-    lines.push(` * @${key} ${pluginConfig[key]}`);
+  const lines = ["/**"];
+  
+  // BetterDiscord 표준 필드 순서
+  const fieldOrder = ['name', 'author', 'authorId', 'version', 'description', 'website', 'source', 'invite', 'donate', 'patreon', 'updateUrl'];
+  
+  for (const key of fieldOrder) {
+    if (pluginConfig[key]) {
+      lines.push(` * @${key} ${pluginConfig[key]}`);
+    }
   }
+  
   lines.push(" */");
   return lines.join("\n");
 })();
@@ -32,7 +39,11 @@ module.exports = {
       new (require('terser-webpack-plugin'))({
         terserOptions: {
           format: {
-            comments: /^!/,  // BannerPlugin으로 추가된 주석 보존
+            comments: function(node, comment) {
+              // BetterDiscord 메타데이터 주석 보존
+              const text = comment.value;
+              return /^\*/.test(text) && /@(name|author|authorId|version|description|website|source)/.test(text);
+            },
           },
         },
         extractComments: false,
