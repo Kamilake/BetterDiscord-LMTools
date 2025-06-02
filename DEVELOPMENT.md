@@ -129,7 +129,7 @@ export function ChannelPromptManager({ settingsManager, currentChannelId }: Chan
 ```bash
 # 저장소 클론
 git clone <repository-url>
-cd Betterdiscord-LMTools
+cd BetterDiscord-LMTools
 
 # 의존성 설치
 npm install

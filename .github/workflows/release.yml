@@ -67,7 +67,7 @@ jobs:
         2. **개발자**: 소스코드를 클론하여 직접 빌드
            ```bash
            git clone https://github.com/${{ github.repository }}.git
-           cd Betterdiscord-LMTools
+           cd BetterDiscord-LMTools
            npm install
            npm run build:prod
            ```
