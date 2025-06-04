@@ -169,6 +169,107 @@ export function SummarizeButton({ channelId, onSummarize, settingsManager }: Sum
   );
 }
 
+interface TranslateButtonProps {
+  channelId: string;
+  onTranslate?: (channelId: string) => void;
+}
+
+export function TranslateButton({ channelId, onTranslate }: TranslateButtonProps): React.ReactElement {
+  const [isLoading, setIsLoading] = BdApi.React.useState(false);
+
+  const handleClick = async (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('[TranslateButton] Click detected, channelId:', channelId);
+    
+    if (isLoading) {
+      console.log('[TranslateButton] Already loading, ignoring click');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('[TranslateButton] Starting translation...');
+      if (onTranslate) {
+        await onTranslate(channelId);
+      }
+      BdApi.UI.showToast('번역이 완료되었습니다.', { type: 'success' });
+    } catch (error) {
+      console.error('[TranslateButton] Error during translation:', error);
+      BdApi.UI.showToast('번역 중 오류가 발생했습니다.', { type: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <button
+      className={`translate-button ${isLoading ? 'loading' : ''}`}
+      onClick={handleClick}
+      disabled={isLoading}
+      title="마지막 대화 번역"
+      type="button"
+      style={{
+        background: 'transparent',
+        border: 'none',
+        padding: '8px',
+        margin: '0 4px',
+        borderRadius: '4px',
+        cursor: isLoading ? 'not-allowed' : 'pointer',
+        color: 'var(--interactive-normal, #b9bbbe)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        width: '32px',
+        height: '32px',
+        minWidth: '32px',
+        flexShrink: 0,
+        opacity: isLoading ? 0.5 : 1
+      }}
+      onMouseEnter={(e) => {
+        if (!isLoading) {
+          e.currentTarget.style.backgroundColor = 'var(--background-modifier-hover, #4f545c)';
+          e.currentTarget.style.color = 'var(--interactive-hover, #dcddde)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'transparent';
+        e.currentTarget.style.color = 'var(--interactive-normal, #b9bbbe)';
+      }}
+    >
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        style={{
+          display: isLoading ? 'none' : 'block'
+        }}
+      >
+        <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+      </svg>
+      {isLoading && (
+        <span
+          className="loading-spinner"
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            animation: 'spin 1s linear infinite',
+            fontSize: '12px'
+          }}
+        >
+          ⟳
+        </span>
+      )}
+    </button>
+  );
+}
+
 interface ChannelPromptModalProps {
   channelId: string;
   settingsManager: SettingsManager;

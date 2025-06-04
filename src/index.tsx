@@ -1,8 +1,9 @@
-import { SummarizeButton, PromptEditor, ChannelPromptManager } from "./component";
+import { SummarizeButton, TranslateButton, PromptEditor, ChannelPromptManager } from "./component";
 import styles from "./styles.css";
 import type { BetterDiscordPlugin, PluginMeta } from "./types/betterdiscord";
 import { SettingsManager } from "./settings";
 import { ConversationSummarizer } from "./summary";
+import { ConversationTranslator } from "./translator";
 
 // BdApi 전역 변수 선언
 declare const BdApi: {
@@ -41,12 +42,14 @@ export default class LMTools implements BetterDiscordPlugin {
   private meta: PluginMeta;
   private settingsManager: SettingsManager;
   private summarizer: ConversationSummarizer;
+  private translator: ConversationTranslator;
   private channelTextAreaButtons: any;
 
   constructor(meta: PluginMeta) {
     this.meta = meta;
     this.settingsManager = new SettingsManager(meta.name);
     this.summarizer = new ConversationSummarizer(this.settingsManager);
+    this.translator = new ConversationTranslator(this.settingsManager);
   }
 
   start(): void {
@@ -225,7 +228,16 @@ export default class LMTools implements BetterDiscordPlugin {
             })
           );
           
-          console.log('Summarize button injected successfully');
+          // 번역 버튼 추가
+          buttons.props.children.unshift(
+            BdApi.React.createElement(TranslateButton, {
+              key: 'translate-button',
+              channelId: props.channel.id,
+              onTranslate: this.handleTranslate.bind(this)
+            })
+          );
+          
+          console.log('Summarize and Translate buttons injected successfully');
         }
       } else {
         console.warn('Could not find buttons container in React element');
@@ -300,12 +312,14 @@ export default class LMTools implements BetterDiscordPlugin {
     }
 
     if (buttonContainer) {
-      const button = this.createSummarizeButtonElement();
+      const summarizeButton = this.createSummarizeButtonElement();
+      const translateButton = this.createTranslateButtonElement();
       
-      // 첫 번째 위치에 버튼 추가 (다른 버튼들보다 앞에)
-      buttonContainer.insertBefore(button, buttonContainer.firstChild);
+      // 첫 번째 위치에 버튼들 추가 (다른 버튼들보다 앞에)
+      buttonContainer.insertBefore(translateButton, buttonContainer.firstChild);
+      buttonContainer.insertBefore(summarizeButton, buttonContainer.firstChild);
       
-      console.log('Summarize button injected manually into DOM');
+      console.log('Summarize and Translate buttons injected manually into DOM');
     } else {
       console.warn('Could not find or create button container');
     }
@@ -403,6 +417,70 @@ export default class LMTools implements BetterDiscordPlugin {
     return button;
   }
 
+  private createTranslateButtonElement(): HTMLElement {
+    const button = document.createElement('button');
+    button.className = 'translate-button';
+    button.type = 'button';
+    
+    // Discord 스타일과 일치하는 CSS 적용
+    button.style.cssText = `
+      background: transparent;
+      border: none;
+      padding: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--interactive-normal, #b9bbbe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      width: 32px;
+      height: 32px;
+    `;
+    
+    button.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+      </svg>
+    `;
+    
+    button.title = '마지막 대화 번역';
+    
+    // 호버 효과
+    button.addEventListener('mouseenter', () => {
+      button.style.backgroundColor = 'var(--background-modifier-hover, #4f545c)';
+      button.style.color = 'var(--interactive-hover, #dcddde)';
+    });
+    
+    button.addEventListener('mouseleave', () => {
+      button.style.backgroundColor = 'transparent';
+      button.style.color = 'var(--interactive-normal, #b9bbbe)';
+    });
+    
+    // 클릭 이벤트
+    button.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const channelId = this.getCurrentChannelId();
+      if (channelId) {
+        // 로딩 상태 표시
+        button.style.opacity = '0.5';
+        button.style.cursor = 'not-allowed';
+        
+        try {
+          await this.handleTranslate(channelId);
+        } finally {
+          // 로딩 상태 해제
+          button.style.opacity = '1';
+          button.style.cursor = 'pointer';
+        }
+      }
+    });
+    
+    return button;
+  }
+
   private getCurrentChannelId(): string | null {
     // 현재 채널 ID를 가져오는 로직 (더 안정적인 방법 사용)
     try {
@@ -475,6 +553,514 @@ export default class LMTools implements BetterDiscordPlugin {
       
       throw error;
     }
+  }
+
+  private async handleTranslate(channelId: string): Promise<void> {
+    try {
+      console.log(`Translating last message in channel: ${channelId}`);
+      
+      // 시작 알림
+      BdApi.UI.showToast('마지막 메시지 번역을 시작합니다...', { type: 'info' });
+      
+      const translation = await this.translator.translateLastMessage(channelId);
+      
+      // 번역 결과를 모달로 표시
+      this.showTranslationModal(translation);
+      
+    } catch (error) {
+      console.error('Error during translation:', error);
+      
+      // 에러 메시지 표시
+      if (error instanceof Error) {
+        BdApi.UI.showToast(`번역 실패: ${error.message}`, { type: 'error' });
+      } else {
+        BdApi.UI.showToast('번역 중 알 수 없는 오류가 발생했습니다.', { type: 'error' });
+      }
+      
+      throw error;
+    }
+  }
+
+  private showTranslationModal(translation: any): void {
+    const details = translation.detailedTranslation || {};
+    
+    // 슬랭/관용구 섹션 HTML 생성
+    let slangSection = '';
+    if (details.slangAndIdioms && details.slangAndIdioms.length > 0) {
+      slangSection = `
+        <div class="translation-details-section">
+          <h3 class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+            </svg>
+            슬랭 & 관용구 설명
+          </h3>
+          <div class="detail-list">
+            ${details.slangAndIdioms.map((item: any) => `
+              <div class="detail-item">
+                <div class="detail-header">
+                  <span class="original-term">"${item.original}"</span>
+                  <span class="formality-badge ${item.formality}">${
+                    item.formality === 'formal' ? '격식체' :
+                    item.formality === 'informal' ? '비격식' : '슬랭'
+                  }</span>
+                </div>
+                <div class="detail-content">
+                  <div class="meaning">💡 의미: ${item.meaning}</div>
+                  <div class="korean-equiv">🇰🇷 한국어 표현: "${item.koreanEquivalent}"</div>
+                  <div class="usage">📝 사용법: ${item.usage}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    // 약어 섹션 HTML 생성
+    let abbreviationSection = '';
+    if (details.abbreviations && details.abbreviations.length > 0) {
+      abbreviationSection = `
+        <div class="translation-details-section">
+          <h3 class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 4v3h5.5v12h3V7H19V4z"/>
+            </svg>
+            약어 & 줄임말
+          </h3>
+          <div class="detail-list">
+            ${details.abbreviations.map((item: any) => `
+              <div class="detail-item">
+                <div class="detail-header">
+                  <span class="abbr-term">"${item.abbr}"</span>
+                  <span class="full-form">→ ${item.fullForm}</span>
+                </div>
+                <div class="detail-content">
+                  <div class="meaning">💭 의미: ${item.meaning}</div>
+                  <div class="usage">💬 일반적 사용: ${item.commonUsage}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    // 문법 노트 섹션 HTML 생성
+    let grammarSection = '';
+    if (details.grammarNotes && details.grammarNotes.length > 0) {
+      grammarSection = `
+        <div class="translation-details-section">
+          <h3 class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            문법 포인트
+          </h3>
+          <div class="detail-list">
+            ${details.grammarNotes.map((item: any) => `
+              <div class="detail-item">
+                <div class="grammar-pattern">${item.pattern}</div>
+                <div class="detail-content">
+                  <div class="explanation">📖 설명: ${item.explanation}</div>
+                  ${item.examples && item.examples.length > 0 ? `
+                    <div class="examples">
+                      <strong>예시:</strong>
+                      <ul>
+                        ${item.examples.map((ex: string) => `<li>${ex}</li>`).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // 모달 HTML 생성
+    const modalHTML = `
+      <div class="lm-tools-translation-modal">
+        <div class="modal-header">
+          <h2>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--brand-experiment, #5865f2)">
+              <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+            </svg>
+            번역 결과
+          </h2>
+          <button class="close-button" title="닫기">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-content">
+          <div class="translation-info">
+            <div class="info-item">
+              <span class="info-label">사용자:</span>
+              <span class="info-value">${translation.username}</span>
+            </div>
+          </div>
+          
+          <div class="translation-section main-translation">
+            <div class="section-header">
+              <h3>원문</h3>
+              <button class="copy-button" data-text="${translation.originalText.replace(/"/g, '&quot;')}" title="복사">
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="translation-text original-text">
+              ${translation.originalText}
+            </div>
+          </div>
+          
+          <div class="translation-section main-translation">
+            <div class="section-header">
+              <h3>번역</h3>
+              <button class="copy-button" data-text="${translation.translatedText.replace(/"/g, '&quot;')}" title="복사">
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="translation-text translated-text">
+              ${translation.translatedText}
+            </div>
+          </div>
+          
+          ${slangSection}
+          ${abbreviationSection}
+          ${grammarSection}
+        </div>
+      </div>
+    `;
+
+    // 모달 스타일 추가 (기존 스타일에 추가)
+    const modalStyles = `
+      <style>
+                .lm-tools-translation-modal {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: var(--background-primary, #36393f);
+          border-radius: 8px;
+          padding: 0;
+          max-width: 600px;
+          width: 90%;
+          max-height: 80vh;
+          overflow: hidden;
+          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
+          animation: slideIn 0.3s ease;
+          z-index: 1001;
+        }
+        
+        .lm-tools-translation-modal .modal-header {
+          background: var(--background-secondary-alt, #2f3136);
+          padding: 16px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid var(--background-modifier-accent, #4f545c);
+        }
+        
+        .lm-tools-translation-modal .modal-header h2 {
+          margin: 0;
+          color: var(--header-primary, #ffffff);
+          font-size: 20px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        
+        .lm-tools-translation-modal .close-button {
+          background: none;
+          border: none;
+          color: var(--interactive-normal, #b9bbbe);
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+        }
+        
+        .lm-tools-translation-modal .close-button:hover {
+          background: var(--background-modifier-hover, #4f545c);
+          color: var(--interactive-hover, #dcddde);
+        }
+        
+        .lm-tools-translation-modal .modal-content {
+          padding: 20px;
+          overflow-y: auto;
+          max-height: calc(80vh - 80px);
+        }
+        
+        .lm-tools-translation-modal .translation-info {
+          background: var(--background-secondary, #2f3136);
+          border-radius: 4px;
+          padding: 12px;
+          margin-bottom: 20px;
+          display: flex;
+          gap: 20px;
+        }
+        
+        .lm-tools-translation-modal .info-item {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        
+        .lm-tools-translation-modal .info-label {
+          color: var(--text-muted, #72767d);
+          font-size: 14px;
+        }
+        
+        .lm-tools-translation-modal .info-value {
+          color: var(--text-normal, #dcddde);
+          font-size: 14px;
+          font-weight: 500;
+        }
+        
+        .lm-tools-translation-modal .translation-section {
+          margin-bottom: 20px;
+        }
+        
+        .lm-tools-translation-modal .section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+        
+        .lm-tools-translation-modal .section-header h3 {
+          margin: 0;
+          color: var(--header-secondary, #b9bbbe);
+          font-size: 14px;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+        
+        .lm-tools-translation-modal .copy-button {
+          background: none;
+          border: none;
+          color: var(--interactive-normal, #b9bbbe);
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+        }
+        
+        .lm-tools-translation-modal .copy-button:hover {
+          background: var(--background-modifier-hover, #4f545c);
+          color: var(--interactive-hover, #dcddde);
+        }
+        
+        .lm-tools-translation-modal .translation-text {
+          background: var(--background-secondary, #2f3136);
+          border: 1px solid var(--background-modifier-accent, #4f545c);
+          border-radius: 4px;
+          padding: 16px;
+          color: var(--text-normal, #dcddde);
+          font-size: 16px;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        
+        .lm-tools-translation-modal .main-translation {
+          margin-bottom: 20px;
+        }
+        
+        .lm-tools-translation-modal .translation-details-section {
+          margin-top: 24px;
+        }
+        
+        .lm-tools-translation-modal .section-title {
+          color: var(--header-primary, #ffffff);
+          font-size: 16px;
+          font-weight: 600;
+          margin: 24px 0 12px 0;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--background-modifier-accent, #4f545c);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .lm-tools-translation-modal .detail-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        
+        .lm-tools-translation-modal .detail-item {
+          background: var(--background-secondary, #2f3136);
+          border: 1px solid var(--background-modifier-accent, #4f545c);
+          border-radius: 4px;
+          padding: 12px;
+        }
+        
+        .lm-tools-translation-modal .detail-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+          flex-wrap: wrap;
+        }
+        
+        .lm-tools-translation-modal .original-term,
+        .lm-tools-translation-modal .abbr-term {
+          color: var(--text-brand, #00aef3);
+          font-weight: 600;
+          font-size: 15px;
+        }
+        
+        .lm-tools-translation-modal .formality-badge {
+          background: var(--background-tertiary, #202225);
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 12px;
+          text-transform: uppercase;
+        }
+        
+        .lm-tools-translation-modal .formality-badge.formal {
+          color: var(--text-positive, #3ba55d);
+        }
+        
+        .lm-tools-translation-modal .formality-badge.informal {
+          color: var(--text-warning, #faa61a);
+        }
+        
+        .lm-tools-translation-modal .formality-badge.slang {
+          color: var(--text-danger, #ed4245);
+        }
+        
+        .lm-tools-translation-modal .full-form {
+          color: var(--text-muted, #72767d);
+          font-size: 14px;
+        }
+        
+        .lm-tools-translation-modal .detail-content {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        
+        .lm-tools-translation-modal .detail-content > div {
+          color: var(--text-normal, #dcddde);
+        }
+        
+        .lm-tools-translation-modal .meaning {
+          font-weight: 500;
+        }
+        
+        .lm-tools-translation-modal .korean-equiv {
+          color: var(--text-positive, #3ba55d);
+        }
+        
+        .lm-tools-translation-modal .usage,
+        .lm-tools-translation-modal .explanation {
+          color: var(--text-muted, #a3a6aa);
+        }
+        
+        .lm-tools-translation-modal .grammar-pattern {
+          color: var(--text-brand, #00aef3);
+          font-weight: 600;
+          font-size: 15px;
+          margin-bottom: 8px;
+          font-family: monospace;
+        }
+        
+        .lm-tools-translation-modal .examples ul {
+          margin: 4px 0 0 20px;
+          padding: 0;
+        }
+        
+        .lm-tools-translation-modal .examples li {
+          color: var(--text-normal, #dcddde);
+          margin: 4px 0;
+        }
+        
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -48%);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+          }
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      </style>
+    `;
+
+    // 모달 오버레이 생성
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'lm-tools-modal-overlay';
+    modalOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
+    `;
+    
+    modalOverlay.innerHTML = modalStyles + modalHTML;
+    document.body.appendChild(modalOverlay);
+
+    // 이벤트 리스너 설정
+    const modal = modalOverlay.querySelector('.lm-tools-translation-modal');
+    const closeButton = modal?.querySelector('.close-button');
+    const copyButtons = modal?.querySelectorAll('.copy-button');
+
+    const closeModal = () => {
+      modalOverlay.style.animation = 'fadeOut 0.2s ease';
+      setTimeout(() => {
+        document.body.removeChild(modalOverlay);
+      }, 200);
+    };
+
+    // 닫기 버튼 이벤트
+    closeButton?.addEventListener('click', closeModal);
+
+    // 복사 버튼 이벤트
+    copyButtons?.forEach(button => {
+      button.addEventListener('click', () => {
+        const text = button.getAttribute('data-text') || '';
+        navigator.clipboard.writeText(text).then(() => {
+          BdApi.UI.showToast('클립보드에 복사되었습니다!', { type: 'success' });
+        });
+      });
+    });
+
+    // 오버레이 클릭 시 닫기
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        closeModal();
+      }
+    });
+
+    // ESC 키로 닫기
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        document.removeEventListener('keydown', handleKeyDown);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
   }
 
   private showSummaryModal(summary: any): void {
