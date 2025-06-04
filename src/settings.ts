@@ -35,35 +35,40 @@ export const defaultSettings: PluginSettings = {
 };
 
 // 하드코딩된 기본 프롬프트 (사용자가 아무것도 설정하지 않았을 때 사용)
-export const HARDCODED_DEFAULT_PROMPT = `다음은 Discord 채팅 대화입니다. 이 대화를 한국어로 간결하고 이해하기 쉽게 요약해 주세요:
+export const HARDCODED_DEFAULT_PROMPT = `Below is a Discord chat conversation. Please summarize this conversation concisely and clearly in Korean:
 
-주요 요구사항:
-1. 대화의 핵심 주제와 내용을 파악하여 요약
-2. 중요한 의견이나 결정사항이 있다면 포함
-3. 참여자들의 주요 관점이나 의견 차이가 있다면 언급
-4. 3-5문장 정도의 간결한 요약
-5. 불필요한 인사말이나 짧은 반응은 제외
+Main requirements:
+1. Identify and summarize the main topics and content.
+2. Include significant opinions or decisions if any.
+3. Mention notable differences in perspectives among participants.
+4. Keep the summary concise (3-5 sentences).
+5. Exclude unnecessary greetings or short reactions.
 
-답장 요구사항:
-1. 답장이란, 대화의 흐름에 맞춰 작성된 {{username}}의 입장에서 하는 대답입니다.
-2. 마지막 대화에 대한 적절한 반응을 작성
+Suggested replies requirements:
+1. "Suggested replies" are responses that the user ({{username}}) might use based on the current conversation flow.
+2. Generate suitable replies from {{username}}'s perspective in reaction to the latest messages.
+3. Imagine you are {{username}} and write replies accordingly.
 
-응답 형식:
+summary -> 한국어, suggested_replies -> 대상 언어
+
+Response format:
 \`\`\`json
 {
-  "summary": "여기에 요약 내용이 들어갑니다.",
-  "examples": [
-    "예시 대답 1",
-    "예시 대답 2",
-    "예시 대답 3"
+  "summary": "Your concise summary goes here.",
+  "suggested_replies": [
+    "Wow, that's fascinating!",
+    "How did you come up with that?",
+    "Good night, everyone!"
   ]
 }
 \`\`\`
 
-대화 내용:
+Conversation:
 \`\`\`
 {{conversation}}
-\`\`\``;
+\`\`\`
+`;
+
 
 // 예제 프롬프트들
 export const EXAMPLE_PROMPTS = {

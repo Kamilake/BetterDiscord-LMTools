@@ -34,7 +34,7 @@ module.exports = {
     compareBeforeEmit: false
   },
   optimization: {
-    minimize: true,
+    minimize: false,
     minimizer: [
       new (require('terser-webpack-plugin'))({
         terserOptions: {

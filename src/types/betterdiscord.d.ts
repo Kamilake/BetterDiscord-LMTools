@@ -8,6 +8,13 @@ declare global {
 
 export interface BdApi {
   React: typeof React;
+  ReactDOM: {
+    unmountComponentAtNode?: (container: HTMLElement) => boolean;
+    createRoot?: (container: HTMLElement) => {
+      render: (element: any) => void;
+      unmount: () => void;
+    };
+  };
   DOM: {
     addStyle(id: string, css: string): void;
     removeStyle(id: string): void;
